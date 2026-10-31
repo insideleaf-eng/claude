@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>招待状エディタ（プロトタイプ）</title>
+<style>
+  :root {
+    --ink: #2b2a28;
+    --muted: #7a756e;
+    --paper: #fbf8f3;
+    --line: #e5dfd6;
+    --accent: #b5566b;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #efebe4;
+      --muted: #a39d94;
+      --paper: #1d1c1a;
+      --line: #3a3733;
+      --accent: #d98a9b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #efebe4;
+    --muted: #a39d94;
+    --paper: #1d1c1a;
+    --line: #3a3733;
+    --accent: #d98a9b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) 1fr;
+    gap: 24px;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: minmax(0, 1fr); padding: 16px; }
+  }
+  h1 { font-size: 1.1rem; margin: 0 0 16px; }
+  fieldset {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin: 0 0 16px;
+  }
+  legend { padding: 0 6px; color: var(--muted); font-size: 0.85rem; }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+  label:first-of-type { margin-top: 0; }
+  input, select, textarea {
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px 10px;
+    font: inherit;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  textarea { resize: vertical; min-height: 84px; }
+  .seg { display: flex; gap: 8px; }
+  .seg label {
+    flex: 1;
+    margin: 0;
+    text-align: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 4px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .seg input { width: auto; margin-right: 4px; }
+
+  /* Preview stage */
+  .stage {
+    display: grid;
+    place-items: center;
+    min-height: 560px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    padding: 24px;
+    transition: background 0.4s ease;
+  }
+  .stage[data-theme="sakura"] { background: linear-gradient(160deg, #fbe7ec, #f6d3dc); --card: #fffaf9; --card-ink: #5b3a42; --card-accent: #b5566b; }
+  .stage[data-theme="mono"]   { background: #e9e9e7; --card: #ffffff; --card-ink: #151515; --card-accent: #151515; }
+  .stage[data-theme="forest"] { background: linear-gradient(160deg, #e3efe3, #c9dcc6); --card: #f7faf4; --card-ink: #2e4a33; --card-accent: #4f7a55; }
+
+  /* Decorative motifs drawn with CSS only */
+  .petal {
+    position: absolute;
+    width: 14px; height: 10px;
+    background: #f3b5c4;
+    border-radius: 100% 0 100% 0;
+    opacity: 0.7;
+    animation: fall 9s linear infinite;
+    pointer-events: none;
+  }
+  .petal:nth-child(2) { left: 12%; animation-delay: -2s; }
+  .petal:nth-child(3) { left: 40%; animation-delay: -5s; width: 10px; }
+  .petal:nth-child(4) { left: 70%; animation-delay: -7s; }
+  .petal:nth-child(5) { left: 88%; animation-delay: -3s; width: 12px; }
+  @keyframes fall {
+    0%   { transform: translateY(-40px) rotate(0deg); opacity: 0; }
+    10%  { opacity: 0.8; }
+    100% { transform: translateY(620px) rotate(360deg); opacity: 0; }
+  }
+  .stage[data-theme="sakura"] .petal { display: block; }
+  .stage:not([data-theme="sakura"]) .petal { display: none; }
+
+  /* Envelope */
+  .envelope {
+    position: relative;
+    width: min(340px, 86vw);
+    height: 220px;
+    background: var(--card);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    cursor: pointer;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+    outline: none;
+  }
+  .envelope:focus-visible { box-shadow: 0 0 0 3px var(--card-accent); }
+  .envelope::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to bottom right, transparent 49.5%, rgba(0,0,0,0.05) 50%, transparent 50.5%),
+      linear-gradient(to bottom left, transparent 49.5%, rgba(0,0,0,0.05) 50%, transparent 50.5%);
+    border-radius: 10px;
+  }
+  .flap {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 50%;
+    background: var(--card);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    transform-origin: top center;
+    transition: transform 0.7s ease;
+    border-radius: 10px 10px 0 0;
+  }
+  .envelope .seal {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 44px; height: 44px;
+    margin: -22px 0 0 -22px;
+    border-radius: 50%;
+    background: var(--card-accent);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 0.8rem;
+    transition: opacity 0.4s ease;
+  }
+  .envelope .hint {
+    position: absolute;
+    left: 0; right: 0; bottom: 14px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--card-ink);
+    opacity: 0.7;
+  }
+  .opened .envelope { transform: translateY(-30px) scale(0.92); opacity: 0; pointer-events: none; }
+  .opened .flap { transform: rotateX(180deg); }
+
+  /* Invitation card */
+  .card {
+    position: absolute;
+    inset: 24px;
+    margin: auto;
+    width: min(420px, calc(100% - 48px));
+    max-height: calc(100% - 48px);
+    overflow: auto;
+    background: var(--card);
+    color: var(--card-ink);
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.14);
+    opacity: 0;
+    transform: translateY(40px) scale(0.96);
+    pointer-events: none;
+    transition: opacity 0.8s ease 0.2s, transform 0.8s ease 0.2s;
+  }
+  .opened .card { opacity: 1; transform: none; pointer-events: auto; }
+  .card .kicker { font-size: 0.75rem; letter-spacing: 0.2em; color: var(--card-accent); }
+  .card h2 {
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
+    font-weight: 500;
+    font-size: 1.8rem;
+    margin: 12px 0 4px;
+    line-height: 1.3;
+  }
+  .card .date { margin: 12px 0; font-size: 0.95rem; }
+  .card .venue { font-size: 0.9rem; opacity: 0.85; white-space: pre-line; }
+  .card .message { margin: 20px 0; font-size: 0.95rem; white-space: pre-line; }
+  .card .divider {
+    width: 48px; height: 1px;
+    margin: 16px auto;
+    background: var(--card-accent);
+  }
+  .rsvp { margin-top: 20px; text-align: left; }
+  .rsvp h3 { font-size: 0.95rem; margin: 0 0 8px; text-align: center; }
+  .rsvp input[type="text"] { margin-top: 0; }
+  .rsvp .row { display: flex; gap: 8px; margin-top: 8px; }
+  .rsvp .row input[type="radio"] { width: auto; margin: 0 6px 0 0; vertical-align: middle; }
+  .rsvp .row label { flex: 1; margin: 0; color: var(--card-ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; text-align: center; cursor: pointer; }
+  .rsvp button {
+    margin-top: 12px;
+    width: 100%;
+    padding: 10px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--card-accent);
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+  }
+  .rsvp .status { font-size: 0.85rem; text-align: center; min-height: 1.4em; margin-top: 8px; }
+
+  .reset {
+    margin-top: 8px;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font: inherit;
+    cursor: pointer;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .petal { animation: none; display: none; }
+    .envelope, .flap, .card { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <h1>招待状エディタ（プロトタイプ）</h1>
+
+    <fieldset>
+      <legend>テンプレート</legend>
+      <select id="theme" aria-label="テンプレート">
+        <option value="sakura">さくら（淡いピンク）</option>
+        <option value="mono">モノクローム</option>
+        <option value="forest">フォレスト（若草）</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <legend>内容</legend>
+      <label>タイトル
+        <input id="kicker" type="text" value="WEDDING INVITATION" maxlength="40">
+      </label>
+      <label>名前（2名）
+        <input id="names" type="text" value="Hanako & Taro" maxlength="60">
+      </label>
+      <label>日付・時間
+        <input id="date" type="text" value="2027年5月3日（月）11:30" maxlength="60">
+      </label>
+      <label>会場
+        <textarea id="venue" maxlength="200">ヒルサイドホール&#10;東京都渋谷区（住所は例）</textarea>
+      </label>
+      <label>メッセージ
+        <textarea id="message" maxlength="400">ささやかな一日ですが、&#10;ぜひご列席くださいますようお願いいたします。</textarea>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>演出</legend>
+      <label>背景の演出
+        <select id="motif">
+          <option value="on">花びら（さくらのみ）</option>
+          <option value="off">なし</option>
+        </select>
+      </label>
+      <button class="reset" id="reopen" type="button">封筒を閉じて最初から見る</button>
+    </fieldset>
+  </aside>
+
+  <main>
+    <div class="stage" id="stage" data-theme="sakura">
+      <span class="petal"></span><span class="petal"></span><span class="petal"></span><span class="petal"></span><span class="petal"></span>
+
+      <div class="envelope" id="envelope" role="button" tabindex="0" aria-label="招待状を開く" aria-expanded="false">
+        <div class="flap"></div>
+        <div class="seal" aria-hidden="true">✿</div>
+        <div class="hint">タップして開く</div>
+      </div>
+
+      <article class="card" id="card" aria-live="polite">
+        <div class="kicker" id="p-kicker">WEDDING INVITATION</div>
+        <h2 id="p-names">Hanako &amp; Taro</h2>
+        <div class="divider"></div>
+        <div class="date" id="p-date"></div>
+        <div class="venue" id="p-venue"></div>
+        <div class="divider"></div>
+        <div class="message" id="p-message"></div>
+
+        <section class="rsvp" aria-labelledby="rsvp-title">
+          <h3 id="rsvp-title">出欠のご返信</h3>
+          <form id="rsvp-form">
+            <input type="text" id="rsvp-name" placeholder="お名前" required maxlength="40" aria-label="お名前">
+            <div class="row">
+              <label><input type="radio" name="attend" value="yes" checked> 出席</label>
+              <label><input type="radio" name="attend" value="no"> 欠席</label>
+            </div>
+            <button type="submit">送信する</button>
+            <div class="status" id="rsvp-status"></div>
+          </form>
+        </section>
+      </article>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var stage = $("stage");
+  var envelope = $("envelope");
+  var STORAGE_KEY = "invitation-prototype-rsvp";
+
+  // Text fields: write user input with textContent only (no HTML injection)
+  var bindings = [
+    ["kicker", "p-kicker"],
+    ["names", "p-names"],
+    ["date", "p-date"],
+    ["venue", "p-venue"],
+    ["message", "p-message"]
+  ];
+  bindings.forEach(function (pair) {
+    var input = $(pair[0]);
+    var target = $(pair[1]);
+    var render = function () { target.textContent = input.value; };
+    input.addEventListener("input", render);
+    render();
+  });
+
+  $("theme").addEventListener("change", function (e) {
+    stage.setAttribute("data-theme", e.target.value);
+  });
+
+  $("motif").addEventListener("change", function (e) {
+    document.querySelectorAll(".petal").forEach(function (p) {
+      p.style.display = e.target.value === "off" ? "none" : "";
+    });
+  });
+
+  function open() {
+    stage.classList.add("opened");
+    envelope.setAttribute("aria-expanded", "true");
+  }
+  function close() {
+    stage.classList.remove("opened");
+    envelope.setAttribute("aria-expanded", "false");
+  }
+
+  envelope.addEventListener("click", open);
+  envelope.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  });
+  $("reopen").addEventListener("click", close);
+
+  // RSVP: saved in this browser only (no server in this prototype)
+  function readRsvps() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    } catch (err) {
+      return [];
+    }
+  }
+  function saveRsvps(list) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  $("rsvp-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("rsvp-name").value.trim();
+    var attendInput = document.querySelector('input[name="attend"]:checked');
+    var status = $("rsvp-status");
+    if (!name || !attendInput) {
+      status.textContent = "お名前を入力してください。";
+      return;
+    }
+    var list = readRsvps();
+    list.push({ name: name, attend: attendInput.value, at: new Date().toISOString() });
+    var saved = saveRsvps(list);
+    status.textContent = saved
+      ? "ご返信ありがとうございます。"
+      : "ご返信を受け付けましたが、この端末には保存できませんでした。";
+    $("rsvp-form").reset();
+  });
+})();
+</script>
+</body>
+</html>
