@@ -92,6 +92,7 @@
     position: relative;
     padding: 24px;
     transition: background 0.4s ease;
+    perspective: 1200px; /* gives the flap real depth when it opens */
   }
   .stage[data-theme="sakura"] { background: linear-gradient(160deg, #fbe7ec, #f6d3dc); --card: #fffaf9; --card-ink: #5b3a42; --card-accent: #b5566b; }
   .stage[data-theme="mono"]   { background: #e9e9e7; --card: #ffffff; --card-ink: #151515; --card-accent: #151515; }
@@ -128,7 +129,8 @@
     border-radius: 10px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.12);
     cursor: pointer;
-    transition: transform 0.6s ease, opacity 0.6s ease;
+    transform-style: preserve-3d;
+    transition: transform 0.8s ease, opacity 0.5s ease;
     outline: none;
   }
   .envelope:focus-visible { box-shadow: 0 0 0 3px var(--card-accent); }
@@ -145,11 +147,24 @@
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 50%;
+    transform-origin: top center;
+    transform-style: preserve-3d;
+    transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 3;
+  }
+  /* Front and inside (back) faces of the flap. Each hides its back so only one side shows at a time. */
+  .flap-front,
+  .flap-back {
+    position: absolute;
+    inset: 0;
     background: var(--card);
     clip-path: polygon(0 0, 100% 0, 50% 100%);
-    transform-origin: top center;
-    transition: transform 0.7s ease;
-    border-radius: 10px 10px 0 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .flap-back {
+    transform: rotateX(180deg);
+    filter: brightness(0.9); /* inside of the flap is a little darker */
   }
   .envelope .seal {
     position: absolute;
@@ -172,7 +187,8 @@
     color: var(--card-ink);
     opacity: 0.7;
   }
-  .opened .envelope { transform: translateY(-30px) scale(0.92); opacity: 0; pointer-events: none; }
+  /* Flap opens first; the envelope lifts and fades only after the flap has turned back */
+  .opened .envelope { transform: translateY(-30px) scale(0.92); opacity: 0; pointer-events: none; transition-delay: 0.9s; }
   .opened .flap { transform: rotateX(180deg); }
 
   /* Invitation card */
@@ -192,7 +208,7 @@
     opacity: 0;
     transform: translateY(40px) scale(0.96);
     pointer-events: none;
-    transition: opacity 0.8s ease 0.2s, transform 0.8s ease 0.2s;
+    transition: opacity 0.8s ease 0.6s, transform 0.8s ease 0.6s;
   }
   .opened .card { opacity: 1; transform: none; pointer-events: auto; }
   .card .kicker { font-size: 0.75rem; letter-spacing: 0.2em; color: var(--card-accent); }
@@ -296,7 +312,7 @@
       <span class="petal"></span><span class="petal"></span><span class="petal"></span><span class="petal"></span><span class="petal"></span>
 
       <div class="envelope" id="envelope" role="button" tabindex="0" aria-label="招待状を開く" aria-expanded="false">
-        <div class="flap"></div>
+        <div class="flap"><div class="flap-front"></div><div class="flap-back"></div></div>
         <div class="seal" aria-hidden="true">✿</div>
         <div class="hint">タップして開く</div>
       </div>
